@@ -153,55 +153,103 @@ class OpenaiRealtimeHandler(AsyncStreamHandler):
         """Create a copy of the handler."""
         return OpenaiRealtimeHandler(self.deps, self.gradio_mode, self.instance_path)
 
-    def _split_into_sentences(self, text: str) -> list[str]:
-        """Split text into sentences for faster TTS streaming.
+    def _split_into_chunks(self, text: str, max_chars: int = 150) -> list[str]:
+        """Split text into optimal chunks for TTS streaming.
+
+        Uses a waterfall approach inspired by mlx-audio:
+        1. First try to split at sentence boundaries (.!?…)
+        2. Then try clause boundaries (:;)
+        3. Then try phrase boundaries (,—)
+        4. Finally fall back to space boundaries
 
         Args:
             text: The text to split.
+            max_chars: Maximum characters per chunk (default 250 for fast response).
 
         Returns:
-            List of sentences/chunks to synthesize separately.
+            List of text chunks to synthesize separately.
         """
         import re
 
-        # Split on sentence boundaries (., !, ?) followed by space or end
-        # Keep the punctuation with the sentence
-        sentences = re.split(r'(?<=[.!?])\s+', text.strip())
+        text = text.strip()
+        if not text:
+            return []
 
-        # Filter out empty strings and merge very short sentences
-        result = []
-        for s in sentences:
-            s = s.strip()
-            if not s:
-                continue
-            # If sentence is very short, merge with previous
-            if result and len(s) < 20 and not s[-1] in '.!?':
-                result[-1] = result[-1] + ' ' + s
+        # If text is short enough, return as-is
+        if len(text) <= max_chars:
+            return [text]
+
+        chunks = []
+        remaining = text
+
+        # Waterfall punctuation priorities (strongest to weakest break points)
+        waterfall = [
+            r'([.!?…]+[\"\'\)]?\s+)',  # Sentence endings (with optional quotes/parens)
+            r'([:;]\s+)',               # Clause separators
+            r'([,—]\s+)',               # Phrase separators
+            r'(\s+)',                   # Any whitespace (last resort)
+        ]
+
+        while remaining:
+            if len(remaining) <= max_chars:
+                chunks.append(remaining.strip())
+                break
+
+            # Try each punctuation level to find a good break point
+            best_break = None
+            for pattern in waterfall:
+                # Find all matches within the max_chars window
+                matches = list(re.finditer(pattern, remaining[:max_chars + 50]))
+                if matches:
+                    # Take the last match that's within or close to max_chars
+                    for match in reversed(matches):
+                        if match.end() <= max_chars + 20:  # Allow slight overflow for natural breaks
+                            best_break = match.end()
+                            break
+                    if best_break:
+                        break
+
+            if best_break and best_break > 20:  # Don't create tiny chunks
+                chunk = remaining[:best_break].strip()
+                remaining = remaining[best_break:].strip()
             else:
-                result.append(s)
+                # No good break point found, force break at max_chars
+                # Try to at least break at a space
+                space_idx = remaining[:max_chars].rfind(' ')
+                if space_idx > 20:
+                    chunk = remaining[:space_idx].strip()
+                    remaining = remaining[space_idx:].strip()
+                else:
+                    chunk = remaining[:max_chars].strip()
+                    remaining = remaining[max_chars:].strip()
 
-        return result if result else [text]
+            if chunk:
+                chunks.append(chunk)
+
+        return chunks
 
     async def _synthesize_with_chatterbox(self, text: str) -> None:
         """Synthesize text using Chatterbox TTS and stream audio for immediate playback.
 
-        Splits text into sentences and synthesizes each one separately for faster
-        time-to-first-audio. Uses the OpenAI-compatible speech API endpoint.
+        Uses waterfall chunking to split text at natural boundaries for faster
+        time-to-first-audio while maintaining natural speech flow.
 
         Args:
             text: The text to synthesize.
 
         """
         if not self._chatterbox_client:
-            logger.warning("Chatterbox endpoint not configured, skipping TTS")
+            logger.warning("Chatterbox client not configured, skipping TTS")
             return
 
-        # Split into sentences for faster response
-        sentences = self._split_into_sentences(text)
-        logger.debug("TTS: splitting into %d chunks for faster streaming", len(sentences))
+        # Split into optimal chunks using waterfall approach
+        chunks = self._split_into_chunks(text)
+        logger.info("TTS: input text (%d chars): %s", len(text), text[:100])
+        logger.info("TTS: split into %d chunks: %s", len(chunks), [c[:30] + "..." if len(c) > 30 else c for c in chunks])
 
-        for sentence in sentences:
-            await self._synthesize_sentence(sentence)
+        for i, chunk in enumerate(chunks):
+            logger.info("TTS: synthesizing chunk %d/%d: %s", i + 1, len(chunks), chunk[:50])
+            await self._synthesize_sentence(chunk)
 
     async def _synthesize_sentence(self, text: str) -> None:
         """Synthesize a single sentence using Chatterbox Gradio endpoint.
