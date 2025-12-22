@@ -20,7 +20,7 @@ dependencies = [
     #Environment variables
     "python-dotenv",
 
-    #OpenAI
+    # OpenAI-compatible client (used for local LLM via vLLM endpoint)
     "openai>=2.1",
 
     #Reachy mini

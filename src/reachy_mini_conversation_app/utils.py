@@ -21,7 +21,7 @@ def parse_args() -> Tuple[argparse.Namespace, list]:  # type: ignore
         "--local-vision",
         default=False,
         action="store_true",
-        help="Use local vision model instead of gpt-realtime vision",
+        help="Use local vision model for image processing",
     )
     parser.add_argument("--gradio", default=False, action="store_true", help="Open gradio interface")
     parser.add_argument("--debug", default=False, action="store_true", help="Enable debug logging")
@@ -43,7 +43,6 @@ def parse_args() -> Tuple[argparse.Namespace, list]:  # type: ignore
 def handle_vision_stuff(args: argparse.Namespace, current_robot: ReachyMini) -> Tuple[CameraWorker | None, Any, Any]:
     """Initialize camera, head tracker, camera worker, and vision manager.
 
-    By default, vision is handled by gpt-realtime model when camera tool is used.
     If --local-vision flag is used, a local vision model will process images periodically.
     """
     camera_worker = None
@@ -77,7 +76,7 @@ def handle_vision_stuff(args: argparse.Namespace, current_robot: ReachyMini) -> 
                 ) from e
         else:
             logging.getLogger(__name__).info(
-                "Using gpt-realtime for vision (default). Use --local-vision for local processing.",
+                "Camera initialized. Use --local-vision for local vision processing.",
             )
 
     return camera_worker, head_tracker, vision_manager
@@ -101,8 +100,6 @@ def setup_logger(debug: bool) -> logging.Logger:
         logging.getLogger("aiortc").setLevel(logging.INFO)
         logging.getLogger("fastrtc").setLevel(logging.INFO)
         logging.getLogger("aioice").setLevel(logging.INFO)
-        logging.getLogger("openai").setLevel(logging.INFO)
-        logging.getLogger("websockets").setLevel(logging.INFO)
     else:
         logging.getLogger("aiortc").setLevel(logging.ERROR)
         logging.getLogger("fastrtc").setLevel(logging.ERROR)

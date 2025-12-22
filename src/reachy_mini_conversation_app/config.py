@@ -18,18 +18,21 @@ else:
 
 
 class Config:
-    """Configuration class for the conversation app."""
+    """Configuration class for the conversation app.
 
-    # Required
-    OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")  # The key is downloaded in console.py if needed
+    This app uses fully local endpoints for all AI services:
+    - LOCAL_LLM_ENDPOINT: vLLM-compatible endpoint for language model
+    - LOCAL_ASR_ENDPOINT: Gradio endpoint for speech recognition
+    - LOCAL_VAD_ENDPOINT: Flask endpoint for voice activity detection
+    - CHATTERBOX_ENDPOINT: Gradio endpoint for text-to-speech
+    """
 
-    # Optional
-    MODEL_NAME = os.getenv("MODEL_NAME", "gpt-realtime")
+    # HuggingFace settings
     HF_HOME = os.getenv("HF_HOME", "./cache")
     LOCAL_VISION_MODEL = os.getenv("LOCAL_VISION_MODEL", "HuggingFaceTB/SmolVLM2-2.2B-Instruct")
     HF_TOKEN = os.getenv("HF_TOKEN")  # Optional, falls back to hf auth login if not set
 
-    logger.debug(f"Model: {MODEL_NAME}, HF_HOME: {HF_HOME}, Vision Model: {LOCAL_VISION_MODEL}")
+    logger.debug(f"HF_HOME: {HF_HOME}, Vision Model: {LOCAL_VISION_MODEL}")
 
     REACHY_MINI_CUSTOM_PROFILE = os.getenv("REACHY_MINI_CUSTOM_PROFILE")
     logger.debug(f"Custom Profile: {REACHY_MINI_CUSTOM_PROFILE}")
