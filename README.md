@@ -1,4 +1,4 @@
-**# Reachy Mini Conversation App
+# Reachy Mini Conversation App
 
 **Fully local conversational AI for Reachy Mini robot** - combining lightweight speech recognition, text-to-speech, and local LLM with choreographed motion libraries.
 
@@ -208,7 +208,7 @@ Apache 2.0
 
 ---
 
-**Built for edge deployment** - Optimized for any hardware with 8GB+ RAM.
-**
+**Built for edge deployment** - Optimized for any hardware with 8GB+ RAM.**
+
 ** Thanks to muellerzr and dwain-branes for their fork and docs **
 
